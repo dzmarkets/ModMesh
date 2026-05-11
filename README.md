@@ -48,6 +48,7 @@ Eliminates complex addressing by using semantic keywords (e.g., `[LIGHT]`, `[TEM
 ### 🏭 Industrial Integration
 - **Native Modbus RTU Slave**: Built-in RS-485 bridge for seamless communication with PLCs (e.g., Siemens S7-200).
 - **Virtual Memory Map**: Shared registers for bidirectional data exchange between industrial controllers and wireless nodes.
+- **Data Flow Logic**: `Physical Sensor` → `Sensor Node` → `Encrypted Mesh` → `Gateway` → `Modbus Register` → `PLC`.
 
 ### 🚨 Emergency Mesh Reset
 A fail-safe mechanism that allows for a network-wide "Zero-State" reset. Features a 3-second visual RED blink warning before clearing all persistent peer data and actuator states.
