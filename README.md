@@ -7,7 +7,7 @@
 **ModMesh** is a professional-grade, modular ESP-NOW mesh networking ecosystem. It leverages a robust Pub/Sub architecture and a Quad-Task RTOS model to provide high-reliability communication for distributed IoT systems.
 
 The project is structured into three specialized roles, each managed as a submodule to ensure consistency and modularity:
-- **Gateway**: Central coordinator and external interface.
+- **Gateway**: Central coordinator and industrial PLC bridge (Modbus RTU).
 - **Sensor**: Optimized for data acquisition and periodic reporting.
 - **Actuator**: High-priority execution nodes for hardware control.
 
@@ -43,6 +43,11 @@ Eliminates complex addressing by using semantic keywords (e.g., `[LIGHT]`, `[TEM
 - **AES Payload Encryption**: End-to-end protection for all mesh traffic.
 - **Peer Authentication**: Handshake-based validation for new nodes.
 - **Network Integrity**: Secure decommissioning via Emergency Mesh Reset.
+- **Zero-State Safety**: Ensures all actuators return to a safe default upon network reset or node entry.
+
+### 🏭 Industrial Integration
+- **Native Modbus RTU Slave**: Built-in RS-485 bridge for seamless communication with PLCs (e.g., Siemens S7-200).
+- **Virtual Memory Map**: Shared registers for bidirectional data exchange between industrial controllers and wireless nodes.
 
 ### 🚨 Emergency Mesh Reset
 A fail-safe mechanism that allows for a network-wide "Zero-State" reset. Features a 3-second visual RED blink warning before clearing all persistent peer data and actuator states.
