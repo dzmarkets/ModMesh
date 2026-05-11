@@ -1,0 +1,9 @@
+[submodule "Gateway"]
+	path = Gateway
+	url = https://github.com/dzmarkets/ESP-NOW-MeshCore
+[submodule "Sensor"]
+	path = Sensor
+	url = https://github.com/dzmarkets/ESP-NOW-MeshCore
+[submodule "Actuator"]
+	path = Actuator
+	url = https://github.com/dzmarkets/ESP-NOW-MeshCore
