@@ -75,6 +75,19 @@ To ensure industrial reliability, ModMesh implements a custom **Application-Laye
 
 ---
 
+## 🌐 Network Topologies
+
+ModMesh supports various industrial deployment patterns, allowing for flexible coverage based on factory floor layouts.
+
+![Mesh Topologies](assets/mesh_topologies.png)
+
+1.  **Star Topology**: Centralized control where a Gateway or Extender manages a cluster of nearby sensors.
+2.  **Serial (Chain) Topology**: Ideal for long corridors or production lines where nodes relay messages in a sequence.
+3.  **Circle (Ring) Topology**: Provides redundant paths for critical data; if one node fails, the signal floods through the other side.
+4.  **Parallel (Grid) Topology**: A high-density mesh where every node has multiple neighbors, ensuring maximum self-healing capability.
+
+---
+
 ## 📬 Communication Protocol (Pub/Sub)
 
 ModMesh uses a semantic **Publish/Subscribe** model. Messages are tagged with keywords in brackets to route data without hardcoded addresses.
