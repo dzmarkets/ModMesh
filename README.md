@@ -32,11 +32,18 @@ ModMesh utilizes a specialized **Quad-Task RTOS Model** to ensure that time-crit
 ```mermaid
 graph TD
     PLC[Industrial PLC / SCADA] <-->|RS-485 Modbus| GW[ModMesh Gateway]
-    GW <-->|Encrypted ESP-NOW| SN1[Sensor Node A]
+    
+    GW <-->|Encrypted Mesh| SN1[Sensor Node A]
+    GW <-->|Encrypted Mesh| SN2[Sensor Node B]
+    
     SN1 <-->|Managed Flooding| EX[ModMesh Extender]
+    SN2 <-->|Managed Flooding| EX
+    
     EX <-->|Managed Flooding| AC1[Actuator Node X]
-    SN2 <-->|Managed Flooding| AC2[Actuator Node Y]
-    AC1 <-->|Multi-Hop| AC2
+    EX <-->|Managed Flooding| AC2[Actuator Node Y]
+    
+    SN1 -.->|Peer Link| SN2
+    AC1 -.->|Multi-Hop| AC2
     
     subgraph "ModMesh Ecosystem"
     GW
