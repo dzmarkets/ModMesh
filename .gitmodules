@@ -7,3 +7,6 @@
 [submodule "Actuator"]
 	path = Actuator
 	url = https://github.com/dzmarkets/ModMesh-Actuator
+[submodule "Extender"]
+	path = Extender
+	url = https://github.com/dzmarkets/ModMesh-Extender.git

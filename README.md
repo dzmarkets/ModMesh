@@ -33,8 +33,8 @@ ModMesh utilizes a specialized **Quad-Task RTOS Model** to ensure that time-crit
 graph TD
     PLC[Industrial PLC / SCADA] <-->|RS-485 Modbus| GW[ModMesh Gateway]
     GW <-->|Encrypted ESP-NOW| SN1[Sensor Node A]
-    GW <-->|Encrypted ESP-NOW| SN2[Sensor Node B]
-    SN1 <-->|Managed Flooding| AC1[Actuator Node X]
+    SN1 <-->|Managed Flooding| EX[ModMesh Extender]
+    EX <-->|Managed Flooding| AC1[Actuator Node X]
     SN2 <-->|Managed Flooding| AC2[Actuator Node Y]
     AC1 <-->|Multi-Hop| AC2
     
@@ -42,6 +42,7 @@ graph TD
     GW
     SN1
     SN2
+    EX
     AC1
     AC2
     end
