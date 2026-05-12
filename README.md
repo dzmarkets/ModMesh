@@ -1,57 +1,137 @@
-# ModMesh
+# ModMesh: Industrial-Grade ESP-NOW Flooding Mesh Ecosystem
 
 ![ModMesh Banner](assets/banner.png)
 
-## 🚀 Overview
+## 📖 Introduction
 
-**ModMesh** is a professional-grade, modular ESP-NOW mesh networking ecosystem. It leverages a robust Pub/Sub architecture and a Quad-Task RTOS model to provide high-reliability communication for distributed IoT systems.
+**ModMesh** is a professional-grade, modular wireless mesh networking ecosystem built on top of the **ESP-NOW** protocol. Designed for industrial automation, remote sensing, and distributed control, it provides a high-reliability communication backbone that bypasses the limitations of traditional Wi-Fi (SSID/Connect/Disconnect overhead) and Bluetooth Mesh (complexity).
 
-The project is structured into three specialized roles, each managed as a submodule to ensure consistency and modularity:
-- **Gateway**: Central coordinator and industrial PLC bridge (Modbus RTU).
-- **Sensor**: Optimized for data acquisition and periodic reporting.
-- **Actuator**: High-priority execution nodes for hardware control.
+The system is built around a **Managed Flooding** architecture, ensuring that messages propagate through the entire network with multi-hop capability, high-speed delivery, and enterprise-grade security.
 
 ---
 
-## 🏗️ Project Structure
+## 🏗️ System Architecture
 
-ModMesh utilizes Git submodules to maintain a single source of truth (`ESP-NOW-MeshCore`) while allowing role-specific configurations.
+ModMesh utilizes a specialized **Quad-Task RTOS Model** to ensure that time-critical operations (like high-speed sensor polling or Modbus UART handling) are never delayed by background network management.
 
-```text
-ModMesh/
-├── Gateway/     # Submodule: Mesh-to-External bridge
-├── Sensor/      # Submodule: Data acquisition nodes
-├── Actuator/    # Submodule: Control and execution nodes
-└── assets/      # Documentation resources
+### 🧩 Core Components
+1.  **Gateway**: The central bridge between the wireless mesh and industrial PLC systems (Modbus RTU).
+2.  **Sensor**: Nodes optimized for high-frequency data acquisition and reporting.
+3.  **Actuator**: Nodes dedicated to hardware control and command execution.
+
+### 📊 RTOS Task Model
+| Task Name | Priority | Stack Size | Responsibility |
+| :--- | :---: | :---: | :--- |
+| `sensor_task` | **10** (Max) | 4KB | Polls hardware inputs every 50ms for instant responsiveness. |
+| `modbus_task` | **6** | 4KB | Handles native Modbus RTU Slave protocol and RS-485 timing. |
+| `mesh_task` | **5** | 4KB | Manages peer health, heartbeats, and background networking. |
+| `device_reset` | **5** | 8KB | Monitors factory reset button (3s hold) and broadcasts safety reset. |
+| `actuator_task`| **7** | 4KB | Processes incoming command queues and triggers GPIOs. |
+
+```mermaid
+graph TD
+    PLC[Siemens S7-200 PLC] <-->|RS-485 Modbus| GW[ModMesh Gateway]
+    GW <-->|Encrypted ESP-NOW| SN1[Sensor Node A]
+    GW <-->|Encrypted ESP-NOW| SN2[Sensor Node B]
+    SN1 <-->|Flooding| AC1[Actuator Node X]
+    SN2 <-->|Flooding| AC2[Actuator Node Y]
+    
+    subgraph "ModMesh Ecosystem"
+    GW
+    SN1
+    SN2
+    AC1
+    AC2
+    end
 ```
 
 ---
 
-## ✨ Key Features
+## 📡 Networking & Logic
 
-### ⚡ Quad-Task RTOS Architecture
-Optimized for real-time performance with specialized tasks:
-1. **Mesh Task**: Handles ESP-NOW protocol and peer discovery.
-2. **Sensor/App Task**: High-priority data acquisition.
-3. **Reset Monitor**: Persistent background monitor for system health.
-4. **Diagnostic Task**: Handles visual feedback and logging.
+### 1. Managed Flooding & Multi-Hop
+Unlike traditional mesh networks that require complex routing tables, ModMesh uses **Layer 2 Managed Flooding**:
+- **Deduplication**: Every packet contains a unique sequence number. Nodes use a **DJB2 hash-based cache** to identify and ignore messages they have already seen or retransmitted.
+- **Auto-Rebroadcast**: When a new message is received, the node immediately re-encrypts and rebroadcasts it, allowing the signal to "flood" through the network to reach distant nodes.
 
-### 📡 Keyword-Based Pub/Sub Routing
-Eliminates complex addressing by using semantic keywords (e.g., `[LIGHT]`, `[TEMP]`) for message routing, allowing nodes to subscribe to specific data streams dynamically.
+### 2. Reliable Delivery (ACK System)
+To ensure industrial-grade reliability, ModMesh implements a custom **Application-Layer ACK**:
+- The sender waits for a confirmation from any immediate neighbor.
+- **Dynamic Timeout**: The `ACK_TIMEOUT_MS` is automatically calculated based on the network size:
+  `ACK_TIMEOUT_MS = 300 + (50 * MESH_MAX_DEVICES)`
+- This ensures that larger networks have enough time for multi-hop propagation without triggering false failure logs.
 
-### 🔐 Enterprise-Grade Security
-- **AES Payload Encryption**: End-to-end protection for all mesh traffic.
-- **Peer Authentication**: Handshake-based validation for new nodes.
-- **Network Integrity**: Secure decommissioning via Emergency Mesh Reset.
-- **Zero-State Safety**: Ensures all actuators return to a safe default upon network reset or node entry.
+### 3. Pub/Sub Keyword Routing
+ModMesh uses a semantic **Publish/Subscribe** model. Messages are tagged with keywords in brackets:
+- **Format**: `[SENDER | MAC | SEQ] [TOPICS]DATA`
+- **Example**: `[SENSOR_01 | ... | 42] [GATEWAY,ALL]TEMP:25.5`
+- Nodes filter messages based on the `ACTUATOR_KEYWORDS` defined in their configuration.
 
-### 🏭 Industrial Integration
-- **Native Modbus RTU Slave**: Built-in RS-485 bridge for seamless communication with PLCs (e.g., Siemens S7-200).
-- **Virtual Memory Map**: Shared registers for bidirectional data exchange between industrial controllers and wireless nodes.
-- **Data Flow Logic**: `Physical Sensor` → `Sensor Node` → `Encrypted Mesh` → `Gateway` → `Modbus Register` → `PLC`.
+---
 
-### 🚨 Emergency Mesh Reset
-A fail-safe mechanism that allows for a network-wide "Zero-State" reset. Features a 3-second visual RED blink warning before clearing all persistent peer data and actuator states.
+## 🔐 Enterprise-Grade Security
+
+Security is not an afterthought in ModMesh; it is integrated into the wire protocol.
+
+- **Encryption**: All payloads are encrypted using **AES-128-CBC** via the `mbedTLS` library.
+- **IV Management**: Every packet is prepended with a **16-byte random Initialization Vector (IV)** to ensure that the same plaintext results in different ciphertext every time.
+- **Key Security**: Nodes share a 128-bit `NETWORK_API_KEY`. If keys don't match, decryption fails and the packet is dropped before reaching the application layer.
+- **Integrity**: PKCS#7 padding validation acts as a secondary check for data corruption or unauthorized tampering.
+
+---
+
+## 🏭 Industrial Integration (Modbus RTU)
+
+The Gateway node acts as a **Native Modbus RTU Slave**, allowing direct connection to PLCs like the Siemens S7-200 or S7-1200 via RS-485.
+
+### Virtual Register Map
+| Register | Name | Type | Description |
+| :--- | :--- | :--- | :--- |
+| **40001** | `Remote Sensor` | Read-Only | State of the wireless sensor nodes (0=Off, 1=On). |
+| **40002** | `LED Command` | Read/Write | Command from PLC to Wireless Actuators (1=Turn ON, 0=OFF). |
+
+### Data Flow
+1. **PLC** writes `1` to Register `40002`.
+2. **Gateway** detects the change and broadcasts `[ALL]CMD:LED_ON` to the mesh.
+3. **Actuator Nodes** receive the command and turn on their physical outputs.
+
+---
+
+## 🚨 Emergency Mesh Reset & Zero-State
+
+Safety is critical in industrial environments. ModMesh features a **Network-Wide Emergency Reset**:
+1. **Trigger**: Hold the physical reset button (GPIO 1) for **3 seconds**.
+2. **Warning**: The LED flashes **Rapid Red** for 3 seconds, allowing the user to cancel.
+3. **Execution**:
+   - The node broadcasts `[ALL]CMD:NETWORK_RESET`.
+   - All nodes in the mesh catch this command and force their actuators into a **Safe Initial State**.
+   - The initiating node wipes its local NVS (Peer IDs, Identity) and reboots.
+
+---
+
+## ⚙️ Configuration (shared_config.h)
+
+Centralized configuration allows for rapid deployment of new nodes.
+
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| `DEVICE_ROLE` | `ROLE_GATEWAY` | Defines if the node is a Gateway, Sensor, or Actuator. |
+| `NETWORK_API_KEY`| `A7F9...` | The 32-char hex string used for AES-128. |
+| `MESH_MAX_DEVICES`| `25` | Scaling factor for network timing and memory. |
+| `MESH_KEEPALIVE_INTERVAL_MS` | `1000` | Heartbeat frequency (Peer health). |
+| `MAX485_UART_PORT`| `1` | UART peripheral used for industrial RS-485. |
+
+---
+
+## 📊 Visual Diagnostics
+
+ModMesh uses a smart RGB signaling system for instant hardware feedback:
+
+- **🟢 Solid Green**: Healthy Mesh (All peers online).
+- **🟢 Blinking Green**: Partial Mesh (One or more nodes are silent).
+- **🔴 Solid Red**: Isolated Node (No peers detected).
+- **🔵 Blue Pulse**: Data Transmission (Sensor update sent).
+- **🔴 Rapid Red Flash**: Factory Reset Warning (3s countdown).
 
 ---
 
@@ -59,41 +139,21 @@ A fail-safe mechanism that allows for a network-wide "Zero-State" reset. Feature
 
 ### Prerequisites
 - ESP-IDF v5.x
-- Git
+- ESP32-S3 or ESP32-C3 hardware.
 
-### Installation
-Clone the repository and initialize all submodules:
-
+### Installation & Build
 ```bash
+# Clone the ecosystem
 git clone --recursive https://github.com/dzmarkets/ModMesh.git
 cd ModMesh
-```
 
-If you have already cloned the repo without submodules:
-
-```bash
-git submodule update --init --recursive
-```
-
-### Building a Role
-Navigate to the desired role directory and build using `idf.py`:
-
-```bash
+# Choose a role (e.g., Gateway)
 cd Gateway
-idf.py build
+idf.py build flash monitor
 ```
 
 ---
 
-## 📊 Visual Diagnostics
-
-ModMesh uses a smart LED signaling system for immediate hardware feedback:
-- **🔵 Blue Pulse**: Active sensor data transmission.
-- **🔴 Red Blink (Slow)**: Peer discovery or partial mesh state.
-- **🔴 Red Flash (Rapid)**: Emergency reset warning (3 seconds).
-- **🟢 Green Pulse**: Successful peer handshake.
-
----
-
-## 📄 License
-This project is part of the `dzmarkets` ecosystem. All rights reserved.
+## 📄 License & Author
+Developed by **M. YOUCEF Yazid** (yazid.youcef@gmail.com)
+Part of the **dzmarkets** industrial IoT ecosystem.
