@@ -24,10 +24,10 @@ ModMesh utilizes a specialized **Quad-Task RTOS Model** to ensure that time-crit
 | `device_reset` | **5** | 8KB | Monitors factory reset button (3s hold) and broadcasts safety reset. |
 
 ### 🧩 Core Component Roles
-1.  **Gateway**: The central coordinator and bridge between the wireless mesh and Industrial PLCs (Modbus RTU).
-2.  **Sensor**: Optimized for high-frequency data acquisition and "Change-of-State" reporting.
-3.  **Actuator**: Dedicated to hardware control and semantic command execution.
-4.  **Extender**: A pure relay node that rebroadcasts messages to extend range without local I/O.
+1.  **[Gateway](./Gateway)**: The central coordinator and bridge between the wireless mesh and Industrial PLCs (Modbus RTU).
+2.  **[Sensor](./Sensor)**: Optimized for high-frequency data acquisition and "Change-of-State" reporting.
+3.  **[Actuator](./Actuator)**: Dedicated to hardware control and semantic command execution.
+4.  **[Extender](./Extender)**: A pure relay node that rebroadcasts messages to extend range without local I/O.
 
 ```mermaid
 graph TD
@@ -181,10 +181,10 @@ git clone --recursive https://github.com/dzmarkets/ModMesh.git
 cd ModMesh
 
 # 2. Configure the role
-# Edit Gateway/components/shared_config/include/shared_config.h
+# Edit [Role]/components/shared_config/include/shared_config.h
 
-# 3. Build and Flash (e.g., Gateway)
-cd Gateway
+# 3. Build and Flash (Choose a role: Gateway, Sensor, Actuator, or Extender)
+cd [Role]
 idf.py build flash monitor
 ```
 
