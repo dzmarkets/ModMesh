@@ -128,18 +128,42 @@ Security is integrated into the wire protocol, not treated as an afterthought.
 
 ## 🏭 Industrial Integration (Modbus RTU)
 
-The Gateway node acts as a **Native Modbus RTU Slave**, allowing direct connection to PLCs like the Siemens S7-200 or S7-1200 via RS-485.
+The Gateway node acts as a **Native Modbus RTU Slave** (Address 1), allowing direct connection to PLCs like the Siemens S7-200 (CPU 224XP) or S7-1200 via RS-485 using a MAX485 module.
+
+### Why Modbus RTU?
+Modbus RTU is utilized because it is the industry standard for serial communication. It offers:
+1. **Standardization**: It acts as a "Universal Language," allowing the ESP32 gateway to communicate with almost any PLC globally (Siemens, Schneider, Delta, Mitsubishi).
+2. **Simplicity**: Its straightforward request-response model is easily implemented in both PLC Ladder Logic and ESP32 C++.
+3. **Efficiency**: Requires minimal overhead, ideal for legacy PLCs while maintaining data integrity through CRC checks.
 
 ### Virtual Register Map
 | Register | Address | Type | Description |
 | :--- | :--- | :--- | :--- |
-| **40001** | `0x0000` | Read-Only | **Remote Sensor State**: 0=Off, 1=On. |
-| **40002** | `0x0001` | Read/Write | **LED Command**: Write 1 to turn ON mesh, 0 to turn OFF. |
+| **40001** | `0x0000` | Read-Only | **Remote Sensor State**: 0=Off, 1=On. Mirrors wireless sensor states to the PLC (e.g., VW100). |
+| **40002** | `0x0001` | Read/Write | **LED Command**: Write 1 to turn ON mesh, 0 to turn OFF. Mirrors PLC button states (e.g., VW102) to the wireless mesh. |
 
-### Data Flow Logic
-1. **PLC** writes `1` to Register `40002`.
-2. **Gateway** detects the change and broadcasts `[ALL]CMD:LED_ON` to the mesh.
-3. **Actuator Nodes** receive the command and trigger their physical relays/outputs.
+### Bidirectional Data Flow Logic
+
+#### Scenario A: Remote Sensor -> Local PLC Bulb
+1. **Wireless Event**: A button is pressed on a Remote ESP32, broadcasting `MSG:BTN_1:1`.
+2. **Gateway Receipt**: The Gateway receives the packet and writes `1` to its internal Modbus Register `40001`.
+3. **Polling Cycle**: The PLC (Master) requests Register `40001` from the Gateway (Slave 1).
+4. **Data Transfer**: Gateway replies with the data (e.g., `01 03 02 00 01 79 84`).
+5. **PLC Action**: The PLC stores `1` in internal memory `VW100`. The logic `VW100 == 1` activates the physical bulb (`Q0.0`).
+
+#### Scenario B: Local PLC Button -> Remote Wireless LED
+1. **Local Event**: A PLC physical button (`I0.0`) is pressed.
+2. **Logic Update**: The PLC updates its local memory `VW102` to `1`.
+3. **Push Cycle**: The PLC sends a Write command to the Gateway to set Register `40002` to `1`.
+4. **Gateway Trigger**: The Gateway detects the change in `40002` and broadcasts `CMD:LED:1` over the mesh.
+5. **Remote Action**: Actuator Nodes receive the command and trigger their physical LEDs/relays.
+
+### Communication "Heartbeat" (T37 Timer Logic)
+To prevent the PLC from "flooding" the RS-485 bus, a specific timing logic is implemented using the S7-200's **Self-Resetting Pulse Generator (Timer T37)**. Modbus is a Half-Duplex protocol, meaning only one device can transmit at a time.
+
+- **Preventing Bus Crashes**: The PLC scans its logic every 1-5ms. Without a timer, it would attempt 500 Modbus requests per second, crashing the RS-485 bus as the Gateway wouldn't have time to respond.
+- **The "Sweet Spot"**: Timer T37 is set with `PT: 5` (500ms). This limits communication to twice per second, providing responsive feedback without hardware overload.
+- **Rising Edge Trigger**: The `MBUS_MSG` instruction requires a `0` to `1` transition. The T37 timer uses a Normally Closed (NC) contact to create an automatic "flicker"—a "High" signal for exactly one scan cycle every 500ms—ensuring the Modbus block executes reliably.
 
 ---
 
