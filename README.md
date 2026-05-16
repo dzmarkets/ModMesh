@@ -224,10 +224,13 @@ ModMesh uses a smart RGB signaling system for instant hardware feedback:
 git clone --recursive https://github.com/dzmarkets/ModMesh.git
 cd ModMesh
 
-# 2. Configure the role
+# 2. Initialize and update submodules (critical for Gateway/Sensor/Actuator components)
+git submodule update --init --recursive
+
+# 3. Configure the role
 # Edit [Role]/components/shared_config/include/shared_config.h
 
-# 3. Build and Flash (Choose a role: Gateway, Sensor, Actuator, or Extender)
+# 4. Build and Flash (Choose a role: Gateway, Sensor, Actuator, or Extender)
 cd [Role]
 idf.py build flash monitor
 ```
@@ -235,6 +238,20 @@ idf.py build flash monitor
 ---
 
 ## 📄 License & Author
-Developed by **M. YOUCEF Yazid** (yazid.youcef@gmail.com)
-Part of the **dzmarkets** industrial IoT ecosystem.
-All rights reserved.
+
+**© 2026 M. YOUCEF Yazid. All rights reserved.**
+
+Developed by **M. YOUCEF Yazid** (yazid.youcef@gmail.com)  
+
+**Ecosystem & Portfolio Domains:**
+- **[dz-markets.com](https://dz-markets.com)**: Full commercial platform
+- **[beinsmart.cloud](https://beinsmart.cloud)**: Industrial IoT ecosystem
+- **[dentiefy.com](https://dentiefy.com)**: Full platform for dental clinics, labs, and suppliers
+- **[lescours.net](https://lescours.net)**: Educational platform
+
+### Usage License
+This project is copyrighted and provided under a **Custom Permissive License** with the following conditions:
+
+- **Free for Open Source & Free Projects**: You are free to use, copy, modify, and distribute this software for any open-source, educational, or free-to-use projects.
+- **Attribution Required**: You must prominently cite the original author (**M. YOUCEF Yazid**) and include a direct link back to this repository (`https://github.com/dzmarkets/ModMesh`) in your project's documentation or credits.
+- **Commercial Use Restricted**: For commercial use, integration into paid products, or proprietary closed-source development, please contact the author to obtain a commercial license.
