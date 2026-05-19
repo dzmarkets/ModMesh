@@ -7,6 +7,28 @@ build/
 # VS Code Settings
 .vscode/
 
+# Paper files
+Paper/
+
+# LaTeX auxiliary files
+*.aux
+*.out
+*.log
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.spl
+*.synctex.gz
+
+# TeX source files
+*.tex
+
+# python files
+*.py
+*.mwp
+
 # sdkconfig file
 #sdkconfig.old
 #sdkconfig
