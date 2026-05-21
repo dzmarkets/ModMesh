@@ -10,3 +10,6 @@
 [submodule "Extender"]
 	path = Extender
 	url = https://github.com/dzmarkets/ModMesh-Extender.git
+[submodule "Sensor_02"]
+	path = Sensor_02
+	url = https://github.com/dzmarkets/ModMesh-Sensor

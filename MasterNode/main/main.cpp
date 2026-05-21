@@ -1,0 +1,94 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "modbus_bridge.h"
+#include "espnow_control.h"
+#include "shared_config.h"
+#include "status_indicator.h"
+#include "device_reset.h"
+#include "esp_mac.h"
+
+static const char *TAG = "MasterNode";
+
+// ---------------------------------------------------------------------------
+// Callback: Received a complete Modbus frame from the PLC via RS-485
+// Runs on Core 1 context
+// ---------------------------------------------------------------------------
+void onModbusRequestReceived(const uint8_t* frame, size_t len) {
+    if (len < 4) return;
+    
+    status_indicator_set_state(LED_STATE_MODBUS_RX);
+    
+    uint8_t slave_id = frame[0];
+    ESP_LOGI(TAG, "PLC requested Slave ID %d (len: %d)", slave_id, len);
+    ESP_LOG_BUFFER_HEX("MODBUS_RX", frame, len);
+
+    if (slave_id == 1 || slave_id == 2) {
+        status_indicator_set_state(LED_STATE_ESPNOW_TX);
+        if (slave_id == 1) {
+            espnow_control_send(SLAVE_NODE_1_MAC, frame, len);
+        } else {
+            espnow_control_send(SLAVE_NODE_2_MAC, frame, len);
+        }
+    } else {
+        ESP_LOGW(TAG, "Unknown Slave ID: %d", slave_id);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Callback: Received a Modbus response from a Slave Node via ESP-NOW
+// Runs on Core 0 context
+// ---------------------------------------------------------------------------
+void onEspNowResponseReceived(const uint8_t* src_mac, const uint8_t* payload, size_t len) {
+    status_indicator_set_state(LED_STATE_ESPNOW_RX);
+    
+    ESP_LOGI(TAG, "Received ESP-NOW response from Slave, routing to PLC (len: %d)...", len);
+    ESP_LOG_BUFFER_HEX("ESPNOW_RX", payload, len);
+    
+    // Transmit back to PLC over RS-485
+    status_indicator_set_state(LED_STATE_MODBUS_TX);
+    modbus_bridge_transmit(payload, len);
+}
+
+extern "C" void app_main(void)
+{
+    ESP_LOGI(TAG, "Starting Master Node (Bridge Mode)");
+
+    // Initialize RGB LED
+    status_indicator_configure();
+
+    // Initialize Smart Reset Button
+    device_reset_init();
+
+    // Initialize the ESP-NOW Router (Core 0 tasks internally)
+    if (!espnow_control_init(onEspNowResponseReceived)) {
+        ESP_LOGE(TAG, "Failed to start ESP-NOW Router");
+        status_indicator_set_state(LED_STATE_ERROR);
+        return;
+    }
+
+    // Print our MAC Address so the user can configure the Slaves
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    ESP_LOGI(TAG, "===========================================");
+    ESP_LOGI(TAG, " MasterNode MAC: %02X:%02X:%02X:%02X:%02X:%02X", 
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ESP_LOGI(TAG, "===========================================");
+
+    // Add Slave Nodes as encrypted peers
+    espnow_control_add_peer(SLAVE_NODE_1_MAC);
+    espnow_control_add_peer(SLAVE_NODE_2_MAC);
+
+    // Initialize the Modbus UART (Core 1 tasks internally)
+    if (!modbus_bridge_init(onModbusRequestReceived)) {
+        ESP_LOGE(TAG, "Failed to start Modbus UART");
+        status_indicator_set_state(LED_STATE_ERROR);
+        return;
+    }
+
+    ESP_LOGI(TAG, "Master Node initialized and listening.");
+    
+    // Main task can suspend, background tasks handle everything
+    vTaskSuspend(NULL);
+}
