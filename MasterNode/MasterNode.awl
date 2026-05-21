@@ -1,0 +1,62 @@
+// ============================================================
+// ModMesh Gateway – S7-200 MicroWin Program (AWL / STL)
+// Target: Testing MasterNode routing to Slave Node 2 (Write Only)
+// Gateway Modbus Target Slave address: 2
+// Baud rate: 9600
+// ============================================================
+
+Network 1
+// Network 1 - Initialize Modbus Master
+LD     SM0.0
+=      L60.0
+LD     SM0.0
+=      L63.7
+LD     L60.0
+CALL   MBUS_CTRL:SBR1, L63.7, 9600, 0, 1000, M0.0, MB1
+
+
+Network 2
+// Network 2 – Initialization token on First Scan
+LD     SM0.1
+S      M10.0, 1
+
+
+Network 3
+// Network 3 – Clear initialization token once Write is successful
+LD     M0.2
+R      M10.0, 1
+
+Network 4
+// Network 4 – Update VW202 = 1 when I0.0 is high (LED ON)
+LD     I0.0
+MOVW   1, VW202
+
+
+Network 5
+// Network 5 – Update VW202 = 0 when I0.0 is low (LED OFF)
+LDN    I0.0
+MOVW   0, VW202
+
+
+Network 6
+// Network 6 – Continuous Modbus Write: VW202 → 40002 on Slave 2
+// Triggered on First Scan (M10.0) or when previous Write is Done (M0.2)
+LD     SM0.0
+=      L60.0
+LD     M10.0
+O      M0.2
+=      L63.7
+LD     L60.0
+CALL   MBUS_MSG:SBR2, L63.7, 2, 1, 40002, 1, &VB202, M0.2, MB3
+
+
+Network 7
+// Network 7 – Fault indicator: Init Error
+LDB<>  MB1, 0
+=      Q0.5
+
+
+Network 8
+// Network 8 – Fault indicator: Write Error
+LDB<>  MB3, 0
+=      Q0.7

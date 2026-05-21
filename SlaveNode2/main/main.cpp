@@ -10,8 +10,29 @@
 #include "device_reset.h"
 #include "esp_mac.h"
 #include "nvs_flash.h"
+#include "driver/gpio.h"
+
+#define ACTUATOR_LED_GPIO 6
 
 static const char *TAG = "SlaveNode2";
+
+// ---------------------------------------------------------------------------
+// Modbus CRC16 Calculation Helper
+// ---------------------------------------------------------------------------
+static uint16_t modbus_crc16(const uint8_t *data, uint16_t len) {
+    uint16_t crc = 0xFFFF;
+    for (uint16_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++) {
+            if (crc & 0x0001) {
+                crc = (crc >> 1) ^ 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
 
 // ---------------------------------------------------------------------------
 // Callback: Received a complete Modbus frame from the Sensor via RS-485 (Core 1)
@@ -64,17 +85,110 @@ void onEspNowRequestReceived(const uint8_t* src_mac, const uint8_t* payload, siz
         return; // Unreachable
     }
 
-    // Transmit over RS-485 to the physical sensor
-    status_indicator_set_state(LED_STATE_MODBUS_TX); // WHITE
-    modbus_bridge_transmit(payload, len);
+    // Process Modbus Actuator logic
+    // Expected Slave ID: 0x02
+    if (len >= 4 && payload[0] == 2) {
+        uint8_t func_code = payload[1];
+        bool led_state_changed = false;
+        static int current_led_val = 0;
+        uint8_t response[32];
+        size_t resp_len = 0;
+
+        if (func_code == 0x05) { // Write Single Coil
+            if (len >= 8) {
+                uint16_t coil_val = (payload[4] << 8) | payload[5];
+                if (coil_val == 0xFF00) {
+                    current_led_val = 1;
+                    led_state_changed = true;
+                } else if (coil_val == 0x0000) {
+                    current_led_val = 0;
+                    led_state_changed = true;
+                }
+                
+                // Echo the request as response (standard for FC 05)
+                memcpy(response, payload, 8);
+                resp_len = 8;
+            }
+        } 
+        else if (func_code == 0x06) { // Write Single Register
+            if (len >= 8) {
+                uint16_t reg_val = (payload[4] << 8) | payload[5];
+                current_led_val = (reg_val > 0) ? 1 : 0;
+                led_state_changed = true;
+
+                // Echo the request as response (standard for FC 06)
+                memcpy(response, payload, 8);
+                resp_len = 8;
+            }
+        }
+        else if (func_code == 0x10) { // Write Multiple Holding Registers
+            if (len >= 11) {
+                uint16_t reg_val = (payload[7] << 8) | payload[8];
+                current_led_val = (reg_val > 0) ? 1 : 0;
+                led_state_changed = true;
+
+                // Response format: [SlaveID, FuncCode, RegAddrHi, RegAddrLo, QtyHi, QtyLo, CRCHi, CRCLo] (8 bytes)
+                memcpy(response, payload, 6);
+                uint16_t crc = modbus_crc16(response, 6);
+                response[6] = crc & 0xFF;
+                response[7] = (crc >> 8) & 0xFF;
+                resp_len = 8;
+            }
+        }
+        else if (func_code == 0x01) { // Read Coils
+            if (len >= 8) {
+                // Response format: [SlaveID, FuncCode, ByteCount(1), DataByte, CRCHi, CRCLo] (6 bytes)
+                response[0] = 2;
+                response[1] = 1;
+                response[2] = 1;
+                response[3] = current_led_val ? 0x01 : 0x00;
+                uint16_t crc = modbus_crc16(response, 4);
+                response[4] = crc & 0xFF;
+                response[5] = (crc >> 8) & 0xFF;
+                resp_len = 6;
+            }
+        }
+        else if (func_code == 0x03) { // Read Holding Registers
+            if (len >= 8) {
+                // Response format: [SlaveID, FuncCode, ByteCount(2), DataHi, DataLo, CRCHi, CRCLo] (7 bytes)
+                response[0] = 2;
+                response[1] = 3;
+                response[2] = 2;
+                response[3] = 0;
+                response[4] = current_led_val ? 1 : 0;
+                uint16_t crc = modbus_crc16(response, 5);
+                response[5] = crc & 0xFF;
+                response[6] = (crc >> 8) & 0xFF;
+                resp_len = 7;
+            }
+        }
+
+        if (led_state_changed) {
+            gpio_set_level((gpio_num_t)ACTUATOR_LED_GPIO, current_led_val);
+            ESP_LOGW(TAG, "Actuator LED [GPIO %d] set to %s", ACTUATOR_LED_GPIO, current_led_val ? "ON" : "OFF");
+        }
+
+        if (resp_len > 0) {
+            status_indicator_set_state(LED_STATE_ESPNOW_TX); // YELLOW
+            vTaskDelay(pdMS_TO_TICKS(10)); // Tiny delay for stability
+            espnow_control_send(MASTER_NODE_MAC, response, resp_len);
+            ESP_LOGI(TAG, "Sent Modbus response back to Master (len: %d)", resp_len);
+            ESP_LOG_BUFFER_HEX("ESPNOW_TX", response, resp_len);
+        }
+    }
 }
 
 extern "C" void app_main(void)
 {
-    ESP_LOGI(TAG, "Starting Slave Node 2 (Sensor Bridge)");
+    ESP_LOGI(TAG, "Starting Slave Node 2 (Sensor Bridge / Actuator)");
 
     // Initialize RGB LED
     status_indicator_configure();
+
+    // Initialize Actuator LED GPIO
+    gpio_reset_pin((gpio_num_t)ACTUATOR_LED_GPIO);
+    gpio_set_direction((gpio_num_t)ACTUATOR_LED_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)ACTUATOR_LED_GPIO, 0); // Initially OFF
 
     // Initialize Smart Reset Button
     device_reset_init();
@@ -104,7 +218,7 @@ extern "C" void app_main(void)
         return;
     }
 
-    ESP_LOGI(TAG, "Slave Node 2 initialized and listening.");
+    ESP_LOGI(TAG, "Slave Node 2 initialized as Actuator and listening.");
     
     // Main task can suspend, background tasks handle everything
     vTaskSuspend(NULL);

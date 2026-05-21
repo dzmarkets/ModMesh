@@ -12,6 +12,12 @@ extern "C" {
 // Callback type for when a complete Modbus frame is received over ESP-NOW
 typedef void (*espnow_recv_cb_t)(const uint8_t* src_mac, const uint8_t* payload, size_t len);
 
+// Callback type for when an ESP-NOW transmission status is received (success or failure)
+typedef void (*espnow_send_cb_t)(const uint8_t* dest_mac, bool success);
+
+// Register a callback to receive ESP-NOW transmission status updates
+void espnow_control_register_send_cb(espnow_send_cb_t cb);
+
 // Initialize Wi-Fi and ESP-NOW
 bool espnow_control_init(espnow_recv_cb_t rx_cb);
 

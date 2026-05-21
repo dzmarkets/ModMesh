@@ -19,6 +19,7 @@ struct ModbusEspNowFrag {
 #pragma pack(pop)
 
 static espnow_recv_cb_t s_rx_callback = NULL;
+static espnow_send_cb_t s_tx_callback = NULL;
 static uint8_t s_reassembly_buf[256];
 static size_t s_reassembly_len = 0;
 static uint8_t s_expected_frag_index = 0;
@@ -62,8 +63,12 @@ static void onDataReceive(const esp_now_recv_info_t *esp_now_info, const uint8_t
 }
 
 static void onDataSend(const esp_now_send_info_t *tx_info, esp_now_send_status_t status) {
-    if (status != ESP_NOW_SEND_SUCCESS) {
+    bool success = (status == ESP_NOW_SEND_SUCCESS);
+    if (!success) {
         ESP_LOGE(TAG, "Send to " MACSTR " failed", MAC2STR(tx_info->des_addr));
+    }
+    if (s_tx_callback) {
+        s_tx_callback(tx_info->des_addr, success);
     }
 }
 
@@ -144,4 +149,8 @@ bool espnow_control_send(const uint8_t* dest_mac, const uint8_t* payload, size_t
         frag_index++;
     }
     return true;
+}
+
+void espnow_control_register_send_cb(espnow_send_cb_t cb) {
+    s_tx_callback = cb;
 }
