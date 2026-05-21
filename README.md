@@ -174,16 +174,15 @@ Safety and ease of maintenance are critical in industrial environments. ModMesh 
 1. **Local Factory Reset** (Any Node):
    - **Trigger**: Hold the physical reset button (GPIO 1) for $\ge$ **3 seconds** but less than 6 seconds, then release.
    - **Warning Cues**: LED turns **Solid Orange** at 1s, then changes to **Rapid Red** (100ms pulse) at 3s.
-   - **Execution**: The initiating node wipes its local NVS (peer list, keys, config) and reboots.
+   - **Execution**: The node enters a **3-second rapid Red/Off blinking sequence** (50ms Red / 50ms Off) to let the user know the resetting process has started, then erases its NVS partition and reboots.
 
 2. **Network-Wide Factory Reset** (Master Node):
    - **Trigger**: Hold the physical reset button (GPIO 1) on the **Master Node** for $\ge$ **6 seconds**, then release.
    - **Warning Cues**: LED transitions from Orange (1s) to Red (3s) and then enters a **Rapid Red/White Strobe** (50ms pulse) at 6s.
    - **Execution**:
-     - The Master Node broadcasts a secure 8-byte magic reset command `[0xDE, 0xAD, 0xBE, 0xEF, 0xFA, 0xCE, 0x00, 0x01]` over the hardware-encrypted ESP-NOW channel to both Slaves.
-     - The Master Node waits **1 second** to ensure successful propagation over the air.
-     - Slave nodes intercept the command, flash solid red, wait 500ms to flush logs, erase their NVS partitions, and reboot.
-     - After the 1-second delay, the Master Node wipes its own NVS partition and reboots.
+     - The Master Node immediately broadcasts a secure 8-byte magic reset command `[0xDE, 0xAD, 0xBE, 0xEF, 0xFA, 0xCE, 0x00, 0x01]` over the hardware-encrypted ESP-NOW channel to both Slaves.
+     - Both Master and Slave nodes immediately enter a synchronized **3-second rapid Red/Off blinking sequence** (50ms Red / 50ms Off) to clearly signal that the network-wide factory reset process is underway.
+     - After the 3-second blinking phase, all nodes erase their NVS partitions and reboot.
 
 ---
 

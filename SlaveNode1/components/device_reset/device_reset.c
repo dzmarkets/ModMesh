@@ -25,6 +25,19 @@ static void print_diagnostics(void) {
     status_indicator_set_state(LED_STATE_IDLE);
 }
 
+static void execute_factory_reset_sequence(void) {
+    ESP_LOGE(TAG, "!!! FACTORY RESET PROCESS STARTED - BLINKING LED FOR 3 SECONDS !!!");
+    for (int i = 0; i < 30; i++) {
+        status_indicator_set_state(LED_STATE_ERROR); // RED
+        vTaskDelay(pdMS_TO_TICKS(50));
+        status_indicator_set_state(LED_STATE_OFF);   // OFF
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    ESP_LOGE(TAG, "!!! WIPING NVS FLASH AND REBOOTING NOW !!!");
+    nvs_flash_erase();
+    esp_restart();
+}
+
 static void button_task(void *pvParameters)
 {
     // Active low (pressed = 0)
@@ -74,13 +87,10 @@ static void button_task(void *pvParameters)
                 if (device_reset_on_network_reset_requested) {
                     device_reset_on_network_reset_requested();
                 }
-                vTaskDelay(pdMS_TO_TICKS(1000)); // Allow 1s for ESP-NOW packets to transmit
-                nvs_flash_erase();
-                esp_restart();
+                execute_factory_reset_sequence();
             } else if (press_duration >= 3000) {
                 ESP_LOGW(TAG, "Long press released between 3s and 6s. Executing Local Factory Reset!");
-                nvs_flash_erase();
-                esp_restart();
+                execute_factory_reset_sequence();
             } else if (press_duration >= 1000) {
                 // Aborted long press
                 ESP_LOGI(TAG, "Long press aborted.");

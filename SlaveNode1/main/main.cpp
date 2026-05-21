@@ -51,8 +51,14 @@ void onEspNowRequestReceived(const uint8_t* src_mac, const uint8_t* payload, siz
     // Check if this is a remote factory reset command
     if (len == REMOTE_RESET_LEN && memcmp(payload, REMOTE_RESET_SIGNATURE, REMOTE_RESET_LEN) == 0) {
         ESP_LOGE(TAG, "!!! RECEIVED CRITICAL REMOTE FACTORY RESET COMMAND !!!");
-        status_indicator_set_state(LED_STATE_ERROR); // Solid Red
-        vTaskDelay(pdMS_TO_TICKS(500)); // Delay to allow logs to flush and LED to hold
+        ESP_LOGE(TAG, "!!! FACTORY RESET PROCESS STARTED - BLINKING LED FOR 3 SECONDS !!!");
+        for (int i = 0; i < 30; i++) {
+            status_indicator_set_state(LED_STATE_ERROR); // RED
+            vTaskDelay(pdMS_TO_TICKS(50));
+            status_indicator_set_state(LED_STATE_OFF);   // OFF
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
+        ESP_LOGE(TAG, "!!! WIPING NVS FLASH AND REBOOTING NOW !!!");
         nvs_flash_erase();
         esp_restart();
         return; // Unreachable
