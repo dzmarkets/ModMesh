@@ -51,6 +51,28 @@ void onEspNowResponseReceived(const uint8_t* src_mac, const uint8_t* payload, si
     modbus_bridge_transmit(payload, len);
 }
 
+// ---------------------------------------------------------------------------
+// Callback: Reset button held >= 6 seconds. Broadcasts reset to all Slaves.
+// ---------------------------------------------------------------------------
+extern "C" void device_reset_on_network_reset_requested(void) {
+    ESP_LOGW(TAG, "!!! BROADCASTING REMOTE FACTORY RESET TO ALL SLAVE NODES !!!");
+    status_indicator_set_state(LED_STATE_WARNING);
+
+    // Send to Slave Node 1
+    if (espnow_control_send(SLAVE_NODE_1_MAC, REMOTE_RESET_SIGNATURE, REMOTE_RESET_LEN)) {
+        ESP_LOGI(TAG, "Successfully transmitted remote reset signal to Slave 1");
+    } else {
+        ESP_LOGE(TAG, "Failed to transmit remote reset signal to Slave 1");
+    }
+
+    // Send to Slave Node 2
+    if (espnow_control_send(SLAVE_NODE_2_MAC, REMOTE_RESET_SIGNATURE, REMOTE_RESET_LEN)) {
+        ESP_LOGI(TAG, "Successfully transmitted remote reset signal to Slave 2");
+    } else {
+        ESP_LOGE(TAG, "Failed to transmit remote reset signal to Slave 2");
+    }
+}
+
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Starting Master Node (Bridge Mode)");

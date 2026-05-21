@@ -9,6 +9,7 @@
 #include "status_indicator.h"
 #include "device_reset.h"
 #include "esp_mac.h"
+#include "nvs_flash.h"
 
 static const char *TAG = "SlaveNode2";
 
@@ -45,6 +46,16 @@ void onEspNowRequestReceived(const uint8_t* src_mac, const uint8_t* payload, siz
     if (memcmp(src_mac, MASTER_NODE_MAC, 6) != 0) {
         ESP_LOGW(TAG, "Received packet from unknown MAC: " MACSTR ". Ignored.", MAC2STR(src_mac));
         return;
+    }
+
+    // Check if this is a remote factory reset command
+    if (len == REMOTE_RESET_LEN && memcmp(payload, REMOTE_RESET_SIGNATURE, REMOTE_RESET_LEN) == 0) {
+        ESP_LOGE(TAG, "!!! RECEIVED CRITICAL REMOTE FACTORY RESET COMMAND !!!");
+        status_indicator_set_state(LED_STATE_ERROR); // Solid Red
+        vTaskDelay(pdMS_TO_TICKS(500)); // Delay to allow logs to flush and LED to hold
+        nvs_flash_erase();
+        esp_restart();
+        return; // Unreachable
     }
 
     // Transmit over RS-485 to the physical sensor

@@ -167,16 +167,23 @@ To prevent the PLC from "flooding" the RS-485 bus, a specific timing logic is im
 
 ---
 
-## 🚨 Emergency Mesh Reset & Zero-State
+## 🚨 Network-Wide Factory Reset & Zero-State
 
-Safety is critical in industrial environments. ModMesh features a **Network-Wide Emergency Reset**:
+Safety and ease of maintenance are critical in industrial environments. ModMesh features a dual-tier hardware-triggered reset mechanism via the physical reset button (GPIO 1):
 
-1. **Trigger**: Hold the physical reset button (GPIO 1) for **3 seconds**.
-2. **Warning**: The LED flashes **Rapid Red** (100ms pulse) for 3 seconds.
-3. **Execution**:
-   - The node broadcasts `[ALL]CMD:NETWORK_RESET`.
-   - All nodes in the mesh catch this command and force their actuators into a **Safe Initial State** (Zero-State).
-   - The initiating node wipes its local NVS (Peer IDs, Identity) and reboots.
+1. **Local Factory Reset** (Any Node):
+   - **Trigger**: Hold the physical reset button (GPIO 1) for $\ge$ **3 seconds** but less than 6 seconds, then release.
+   - **Warning Cues**: LED turns **Solid Orange** at 1s, then changes to **Rapid Red** (100ms pulse) at 3s.
+   - **Execution**: The initiating node wipes its local NVS (peer list, keys, config) and reboots.
+
+2. **Network-Wide Factory Reset** (Master Node):
+   - **Trigger**: Hold the physical reset button (GPIO 1) on the **Master Node** for $\ge$ **6 seconds**, then release.
+   - **Warning Cues**: LED transitions from Orange (1s) to Red (3s) and then enters a **Rapid Red/White Strobe** (50ms pulse) at 6s.
+   - **Execution**:
+     - The Master Node broadcasts a secure 8-byte magic reset command `[0xDE, 0xAD, 0xBE, 0xEF, 0xFA, 0xCE, 0x00, 0x01]` over the hardware-encrypted ESP-NOW channel to both Slaves.
+     - The Master Node waits **1 second** to ensure successful propagation over the air.
+     - Slave nodes intercept the command, flash solid red, wait 500ms to flush logs, erase their NVS partitions, and reboot.
+     - After the 1-second delay, the Master Node wipes its own NVS partition and reboots.
 
 ---
 
@@ -194,6 +201,7 @@ Centralized configuration allows for rapid deployment of new nodes.
 | `MESH_KEEPALIVE_INTERVAL_MS` | `1000` | Heartbeat frequency (Peer health tracking). |
 | `MAX485_UART_PORT`| `1` | UART peripheral used for industrial RS-485. |
 | `MAX485_BAUD_RATE` | `9600` | Standard baud rate for industrial PLCs. |
+| `REMOTE_RESET_SIGNATURE`| `0xDE...` | 8-byte signature to trigger remote factory reset. |
 
 ---
 
@@ -205,9 +213,11 @@ ModMesh uses a smart RGB signaling system for instant hardware feedback:
 | :--- | :--- | :--- |
 | 🟢 **Solid Green** | Static | **Healthy Mesh**: All configured peers are online. |
 | 🟢 **Blinking Green**| 500ms | **Partial Mesh**: One or more nodes are offline/silent. |
-| 🔴 **Solid Red** | Static | **Isolation**: No peers detected (Check power/API key). |
+| 🔴 **Solid Red** | Static | **Isolation / Error**: No peers detected, or executing reset. |
 | 🔵 **Blue Pulse** | Pulse | **Transmission**: Active data exchange or waiting for ACK. |
-| 🔴 **Rapid Red** | 100ms | **Safety Reset**: Button held; 3s until factory wipe. |
+| 🟠 **Solid Orange** | Static | **Warning State**: Reset button held for $\ge$ 1s. |
+| 🔴 **Rapid Red** | 100ms pulse | **Local Reset Pending**: Reset button held for $\ge$ 3s. |
+| 🔴⚪ **Red/White Strobe**| 50ms strobe | **Network Reset Pending**: Master Node reset button held for $\ge$ 6s. |
 
 ---
 

@@ -60,4 +60,10 @@ static const uint8_t SLAVE_NODE_1_MAC[6] = {0xAC, 0xA7, 0x04, 0xF4, 0x03, 0xEC};
 // MAC Address of Slave Node 2 (Connected to Slave ID 2)
 static const uint8_t SLAVE_NODE_2_MAC[6] = {0xAC, 0xA7, 0x04, 0xF3, 0xFD, 0x54};
 
+// ---------------------------------------------------------------------------
+// Remote Reset Configuration
+// ---------------------------------------------------------------------------
+#define REMOTE_RESET_LEN 8
+static const uint8_t REMOTE_RESET_SIGNATURE[REMOTE_RESET_LEN] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFA, 0xCE, 0x00, 0x01};
+
 #endif // SHARED_CONFIG_H

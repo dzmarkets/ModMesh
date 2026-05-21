@@ -10,6 +10,9 @@
 
 static const char *TAG = "device_reset";
 
+// Weak function declaration to allow main.cpp to handle network-wide reset
+extern void device_reset_on_network_reset_requested(void) __attribute__((weak));
+
 static void print_diagnostics(void) {
     status_indicator_set_state(LED_STATE_DIAGNOSTIC);
     ESP_LOGI(TAG, "================ DIAGNOSTICS ================");
@@ -66,8 +69,16 @@ static void button_task(void *pvParameters)
                 ESP_LOGI(TAG, "Double click detected. Printing diagnostics.");
                 print_diagnostics();
                 click_count = 0;
+            } else if (press_duration >= 6000) {
+                ESP_LOGW(TAG, "Long press released >= 6s. Executing Network-wide Factory Reset!");
+                if (device_reset_on_network_reset_requested) {
+                    device_reset_on_network_reset_requested();
+                }
+                vTaskDelay(pdMS_TO_TICKS(1000)); // Allow 1s for ESP-NOW packets to transmit
+                nvs_flash_erase();
+                esp_restart();
             } else if (press_duration >= 3000) {
-                ESP_LOGW(TAG, "Long press released > 3s. Executing Factory Reset!");
+                ESP_LOGW(TAG, "Long press released between 3s and 6s. Executing Local Factory Reset!");
                 nvs_flash_erase();
                 esp_restart();
             } else if (press_duration >= 1000) {
@@ -81,7 +92,14 @@ static void button_task(void *pvParameters)
         if (is_pressed) {
             press_duration += 10;
             
-            if (press_duration >= 3000) {
+            if (press_duration >= 6000) {
+                // Rapid Red/White flash
+                if ((press_duration / 50) % 2 == 0) {
+                    status_indicator_set_state(LED_STATE_ERROR); // Red
+                } else {
+                    status_indicator_set_state(LED_STATE_MODBUS_TX); // White
+                }
+            } else if (press_duration >= 3000) {
                 // Rapid Red Flash
                 if ((press_duration / 100) % 2 == 0) {
                     status_indicator_set_state(LED_STATE_ERROR);
