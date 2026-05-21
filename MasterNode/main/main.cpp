@@ -53,7 +53,7 @@ void onModbusRequestReceived(const uint8_t* frame, size_t len) {
     ESP_LOGI(TAG, "PLC requested Slave ID %d (len: %d)", slave_id, len);
     ESP_LOG_BUFFER_HEX("MODBUS_RX", frame, len);
 
-    if (slave_id == 1 || slave_id == 2) {
+    if (slave_id == 1 || slave_id == 2 || slave_id == 3) {
         status_indicator_set_state(LED_STATE_ESPNOW_TX);
         s_pending_request.slave_id = slave_id;
         s_pending_request.function_code = frame[1];
@@ -62,9 +62,12 @@ void onModbusRequestReceived(const uint8_t* frame, size_t len) {
         if (slave_id == 1) {
             memcpy((void*)s_pending_request.dest_mac, SLAVE_NODE_1_MAC, 6);
             espnow_control_send(SLAVE_NODE_1_MAC, frame, len);
-        } else {
+        } else if (slave_id == 2) {
             memcpy((void*)s_pending_request.dest_mac, SLAVE_NODE_2_MAC, 6);
             espnow_control_send(SLAVE_NODE_2_MAC, frame, len);
+        } else if (slave_id == 3) {
+            memcpy((void*)s_pending_request.dest_mac, SLAVE_NODE_3_MAC, 6);
+            espnow_control_send(SLAVE_NODE_3_MAC, frame, len);
         }
     } else {
         ESP_LOGW(TAG, "Unknown Slave ID: %d", slave_id);
@@ -100,6 +103,8 @@ void onEspNowSendStatusReceived(const uint8_t* dest_mac, bool success) {
                 ESP_LOGE(TAG, "!!! Slave Node 1 (" MACSTR ") is OFFLINE / UNREACHABLE !!!", MAC2STR(dest_mac));
             } else if (memcmp(dest_mac, SLAVE_NODE_2_MAC, 6) == 0) {
                 ESP_LOGE(TAG, "!!! Slave Node 2 (" MACSTR ") is OFFLINE / UNREACHABLE !!!", MAC2STR(dest_mac));
+            } else if (memcmp(dest_mac, SLAVE_NODE_3_MAC, 6) == 0) {
+                ESP_LOGE(TAG, "!!! Slave Node 3 (" MACSTR ") is OFFLINE / UNREACHABLE !!!", MAC2STR(dest_mac));
             } else {
                 ESP_LOGE(TAG, "!!! Unknown Slave Node (" MACSTR ") is OFFLINE / UNREACHABLE !!!", MAC2STR(dest_mac));
             }
@@ -148,6 +153,13 @@ extern "C" void device_reset_on_network_reset_requested(void) {
     } else {
         ESP_LOGE(TAG, "Failed to transmit remote reset signal to Slave 2");
     }
+
+    // Send to Slave Node 3
+    if (espnow_control_send(SLAVE_NODE_3_MAC, REMOTE_RESET_SIGNATURE, REMOTE_RESET_LEN)) {
+        ESP_LOGI(TAG, "Successfully transmitted remote reset signal to Slave 3");
+    } else {
+        ESP_LOGE(TAG, "Failed to transmit remote reset signal to Slave 3");
+    }
 }
 
 extern "C" void app_main(void)
@@ -181,6 +193,7 @@ extern "C" void app_main(void)
     // Add Slave Nodes as encrypted peers
     espnow_control_add_peer(SLAVE_NODE_1_MAC);
     espnow_control_add_peer(SLAVE_NODE_2_MAC);
+    espnow_control_add_peer(SLAVE_NODE_3_MAC);
 
     // Initialize the Modbus UART (Core 1 tasks internally)
     if (!modbus_bridge_init(onModbusRequestReceived)) {

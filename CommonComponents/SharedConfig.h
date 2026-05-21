@@ -47,13 +47,17 @@ static const uint8_t SLAVE_NODE_1_MAC[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x11};
 // MAC Address of Slave Node 2 (Connected to Slave ID 2)
 static const uint8_t SLAVE_NODE_2_MAC[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x22};
 
+// MAC Address of Slave Node 3 (Connected to Slave ID 3)
+static const uint8_t SLAVE_NODE_3_MAC[6] = {0xAC, 0xA7, 0x04, 0x15, 0xBC, 0xC0};
+
 // ---------------------------------------------------------------------------
 // Roles
 // ---------------------------------------------------------------------------
 typedef enum {
     ROLE_MASTER_NODE = 0,
     ROLE_SLAVE_NODE_1 = 1,
-    ROLE_SLAVE_NODE_2 = 2
+    ROLE_SLAVE_NODE_2 = 2,
+    ROLE_SLAVE_NODE_3 = 3
 } NodeRole_t;
 
 #endif // SHARED_CONFIG_H

@@ -60,6 +60,9 @@ static const uint8_t SLAVE_NODE_1_MAC[6] = {0xAC, 0xA7, 0x04, 0xF4, 0x03, 0xEC};
 // MAC Address of Slave Node 2 (Connected to Slave ID 2)
 static const uint8_t SLAVE_NODE_2_MAC[6] = {0xAC, 0xA7, 0x04, 0xF3, 0xFD, 0x54};
 
+// MAC Address of Slave Node 3 (Connected to Slave ID 3)
+static const uint8_t SLAVE_NODE_3_MAC[6] = {0xAC, 0xA7, 0x04, 0x15, 0xBC, 0xC0};
+
 // ---------------------------------------------------------------------------
 // Remote Reset Configuration
 // ---------------------------------------------------------------------------
